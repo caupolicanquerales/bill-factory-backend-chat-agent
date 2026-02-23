@@ -1,0 +1,55 @@
+server:
+  port: 8085
+event:
+  name-chat: new-message
+app:
+  frontend:
+    url: http://localhost:4200
+logging:
+  level:
+    org:
+      springframework:
+        ai: DEBUG
+        web:
+          reactive:
+            function:
+              client:
+                WebClient: TRACE
+spring:
+  main:
+    web-application-type: reactive
+  application:
+    name: bill_factory_agent_chat
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      embedding:
+        model: text-embedding-3-large
+      responses:
+        options:
+          model: gpt-5.1
+      chat:
+        enabled: true
+        options:
+          model: gpt-5.1
+  cloud:
+    function:
+      definition: publishingUpdatePromptEvent
+    stream:
+      default-binder: kafka
+      default:
+        producer:
+          useNativeEncoding: true
+      bindings:
+        publishingUpdatePromptEvent-out-0:
+          destination: event-get-prompt-image 
+      kafka:
+        binder:
+          configuration:
+            key.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+            value.deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+            key.serializer: org.apache.kafka.common.serialization.StringSerializer
+            value.serializer: org.springframework.kafka.support.serializer.JsonSerializer
+            spring.json.trusted.packages: "*"
+          brokers: localhost:9092 
+          auto-create-topics: true
