@@ -30,9 +30,9 @@ public class GenerationAgentDataController {
 	
 	@PostMapping(path = "/chat-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<ServerSentEvent<DataMessage>> chatClient(@RequestBody GenerationSyntheticDataRequest request) {
-		return Flux.just(request.getPrompt())
-	    		.filter(message -> Objects.nonNull(message)) 
-	            .filter(message ->  !message.trim().isEmpty())
+		return Flux.just(request)
+	    		.filter(req -> Objects.nonNull(req.getPrompt())) 
+	            .filter(req ->  !req.getPrompt().trim().isEmpty())
 	            .doOnNext(req->{System.out.println(req);} )
 	            .flatMap(executingOrchestrator::executing);
 	}

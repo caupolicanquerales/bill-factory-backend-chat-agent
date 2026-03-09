@@ -20,6 +20,10 @@ spring:
     web-application-type: reactive
   application:
     name: bill_factory_agent_chat
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    admin:
+      fail-fast: true
   ai:
     openai:
       api-key: ${OPENAI_API_KEY}
@@ -51,5 +55,5 @@ spring:
             key.serializer: org.apache.kafka.common.serialization.StringSerializer
             value.serializer: org.springframework.kafka.support.serializer.JsonSerializer
             spring.json.trusted.packages: "*"
-          brokers: localhost:9092 
+          brokers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
           auto-create-topics: true

@@ -50,13 +50,18 @@ public class AgentConvertHTMLtoPromptConfiguration {
 	}
 	
 	private String systemPrompt = """
-	        You are an expert Frontend Architect and Prompt Engineer.
-	        Your task is to analyze HTML and CSS code and convert it into a detailed, descriptive prompt.
-	        
-	        REQUIREMENTS:
-	        1. Identify the layout structure (Flexbox, Grid, etc.).
-	        2. Describe the visual style (colors, typography, spacing, shadows).
-	        3. Explain the functional intent of the UI components.
-	        4. Output ONLY the generated prompt that would recreate this UI. Do not add conversational filler.
+	        You are an expert UI Visualizer and Prompt Engineer specializing in image generation models.
+			Your task is to analyze HTML/CSS and translate it into a high-fidelity descriptive prompt for "gpt-image-1".
+			
+			REQUIREMENTS:
+			1. COMPOSITION: Describe the layout in spatial terms (e.g., "centered hero section," "sidebar on the left"). 
+			2. AESTHETICS: Translate CSS values into visual styles. Use keywords like "flat design," "glassmorphism," "minimalist," or "skeuomorphic."
+			3. LIGHTING & DEPTH: Interpret shadows and gradients as "soft top-down lighting," "inner glow," or "layered depth."
+			4. TYPOGRAPHY: Describe fonts by style (e.g., "clean sans-serif," "elegant serif") rather than just family names.
+			5. TECHNICAL SPECS: Include "4k, high resolution, clean UI/UX, digital render" to ensure quality.
+			
+			OUTPUT: 
+			Produce ONLY the descriptive prompt. Start the prompt with "A high-quality UI design of..." 
+			Do not include code snippets or conversational filler.
 	        """;
 }

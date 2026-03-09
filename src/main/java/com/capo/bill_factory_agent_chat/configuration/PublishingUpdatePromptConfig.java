@@ -30,7 +30,9 @@ public class PublishingUpdatePromptConfig {
 	@Bean
     public Supplier<Flux<Message<PromptGeneratedEvent>>> publishingUpdatePromptEvent() {
         return () -> this.eventPublisher.publish()
-                                        .map(this::toMessage);
+                                        .map(this::toMessage)
+                                        .onErrorContinue((err, obj) ->
+                                            System.err.println("Kafka publish error (skipping event): " + err.getMessage()));
     }
 	
 	private Message<PromptGeneratedEvent> toMessage(PromptGeneratedEvent event) {

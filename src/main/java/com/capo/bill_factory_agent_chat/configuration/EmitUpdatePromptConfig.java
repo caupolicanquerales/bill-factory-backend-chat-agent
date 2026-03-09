@@ -14,7 +14,7 @@ public class EmitUpdatePromptConfig {
 	
 	@Bean
     public EmitUpdatePromptEvent emitUpdatePointEventListener(){
-        var sink = Sinks.many().unicast().<PromptGeneratedEvent>onBackpressureBuffer();
+        var sink = Sinks.many().multicast().<PromptGeneratedEvent>onBackpressureBuffer();
         var flux = sink.asFlux();
         return new EmitUpdatePromptEvent(sink, flux);
     }

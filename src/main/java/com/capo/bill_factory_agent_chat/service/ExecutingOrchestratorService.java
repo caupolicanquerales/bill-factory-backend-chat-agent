@@ -1,7 +1,5 @@
 package com.capo.bill_factory_agent_chat.service;
 
-import java.util.UUID;
-
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,12 +7,15 @@ import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 
 import com.capo.bill_factory_agent_chat.kafka.EmitingEvent;
+import com.capo.bill_factory_agent_chat.request.GenerationSyntheticDataRequest;
 import com.capo.bill_factory_agent_chat.response.DataMessage;
 import com.capo.bill_factory_agent_chat.utils.ConverterUtil;
 import com.capo.bill_factory_agent_chat.utils.MapperUtil;
 
 import kafkaEvents.PromptGeneratedEvent;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @Service
 public class ExecutingOrchestratorService {
@@ -31,68 +32,31 @@ public class ExecutingOrchestratorService {
 		this.emitEvent= emitEvent;
 	}
 	
-	/*
-	public Flux<ServerSentEvent<DataMessage>> executing(String prompt){
-		String conversationId = UUID.randomUUID().toString();
-        StringBuilder fullPrompt= new StringBuilder();
-		return this.chatClient.prompt()
-		.system(s->s.text(systemPrompt))        
-		.user(prompt)
-        .advisors(a -> a.param("chat_memory_conversation_id", conversationId))
-        .stream()
-        .chatResponse()
-        .map(response -> {
-            if (response.getResult() != null && response.getResult().getOutput() != null) {
-                String text = response.getResult().getOutput().getText();
-                return (text != null) ? text : "";
-            }
-            return "";
-        })
-        .doOnNext(fullPrompt::append)
-	    .map(ConverterUtil::setDataMessage)
-	    .map(data -> ConverterUtil.setServerSentEvent(data, eventName))
-	    .doOnComplete(() ->{
-	    	System.out.println("AI Stream Finished. Sending completion prompt...");
-	    	PromptGeneratedEvent finalPrompt = MapperUtil.setPromptGeneratedEvent(fullPrompt.toString());
-	    	emitEvent.emit(finalPrompt);
-	    })
-	    .doOnTerminate(() -> System.out.println("HTTP Response fully closed on server"))
-	    .onErrorResume(Exception.class, e -> {
-            System.err.println("Error during Orchestration stream: " + e.getMessage());
-            return Flux.error(new RuntimeException("AI Stream failed", e));
-        });
-	}*/
-	
-	
-	public Flux<ServerSentEvent<DataMessage>> executing(String prompt) {
-	    String conversationId = UUID.randomUUID().toString();
-	    
-	    return Flux.defer(() -> {
-	        try {
-	            // 1. Change .stream() to .call() for synchronous execution
-	            String fullContent = this.chatClient.prompt()
+	public Flux<ServerSentEvent<DataMessage>> executing(GenerationSyntheticDataRequest request) {
+
+	    return Mono.fromCallable(() ->
+	                this.chatClient.prompt()
+	                    .advisors(a -> a.param("chat_memory_conversation_id", request.getConversationId())
+	                                    .param("chat_memory_retrieve_size", 10))
 	                    .system(s -> s.text(systemPrompt))
-	                    .user(prompt)
-	                    .advisors(a -> a.param("chat_memory_conversation_id", conversationId))
+	                    .user(request.getPrompt())
 	                    .call()
-	                    .content(); // This blocks until the sub-agents finish
-
-	            // 2. Log for debugging
-	            System.out.println("AI Response received: " + fullContent);
-
-	            // 3. Emit the final event to Kafka (matching your original logic)
+	                    .content()
+	    )
+	    .subscribeOn(Schedulers.boundedElastic())
+	    .flatMapMany(fullContent -> {
+	        try {
 	            PromptGeneratedEvent finalPrompt = MapperUtil.setPromptGeneratedEvent(fullContent);
 	            emitEvent.emit(finalPrompt);
-
-	            // 4. Wrap the result in the expected Flux/SSE format for the frontend
-	            DataMessage dataMessage = ConverterUtil.setDataMessage(fullContent);
-	            return Flux.just(ConverterUtil.setServerSentEvent(dataMessage, eventName));
-
-	        } catch (Exception e) {
-	            System.err.println("Error during Orchestration call: " + e.getMessage());
-	            return Flux.error(new RuntimeException("AI processing failed", e));
+	        } catch (Exception kafkaError) {
+	            System.err.println("Kafka event emission failed (SSE response will still be returned): "
+	                    + kafkaError.getMessage());
 	        }
-	    });
+
+	        DataMessage dataMessage = ConverterUtil.setDataMessage(fullContent);
+	        return Flux.just(ConverterUtil.setServerSentEvent(dataMessage, eventName));
+	    })
+	    .onErrorMap(e -> new RuntimeException("AI processing failed", e));
 	}
 	
 	private String systemPrompt= """
@@ -107,6 +71,10 @@ public class ExecutingOrchestratorService {
 			
 			- NO PRE-PROCESSING: Do not attempt to "improve" the prompt before converting it. 
 			- NON-AMBIGUITY RULE: Valid CSS/HTML code is never considered ambiguous. Even if the code contains text descriptions, treat the entire block as a technical specification for convertorHTMLToPromptTool.
+			
+			3. REFACTORING MODE:
+			   - If the user provides feedback (e.g., "change the color", "make it more cinematic") and you see a previous prompt in the conversation history, you MUST use 'improvePromptTool'.
+			   - When calling 'improvePromptTool', pass the LAST GENERATED PROMPT as the 'currentPrompt' and the user's new request as 'userInstructions'.
 			
 			Analyze the input and call the tool immediately.
 			""";
